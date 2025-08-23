@@ -1,0 +1,7 @@
+.cache/*
+datasets/*
+converter/*
+bin/*
+nsys/
+main
+teste
