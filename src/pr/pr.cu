@@ -45,7 +45,7 @@ void PR32(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         graph->thrustFrontier, graph->thrustFrontier + *(graph->numVertices), 0,
         thrust::plus<uint32>());
 
-    Timer timer("Execution time: ");
+    Timer timer("Execution time: ", true);
     while (*(graph->frontierSize)) {
       // std::cout << "Frontier size: " << *graph->frontierSize << std::endl;
 
@@ -501,7 +501,7 @@ void PR32(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
           0, thrust::plus<uint32>());
     }
 
-    totalDuration += timer.GetDuration();
+    totalDuration += timer.GetDurationSec();
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -511,8 +511,12 @@ void PR32(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
   std::cout << "Total amount of data sent with filter: " << MBytes << " MB"
             << std::endl;
 
-  std::cout << "Average execution time: " << totalDuration / nRuns << " ms"
+  std::cout << "\n===== Timing Summary =====" << std::endl;
+  std::cout << "Pre-data movement time:    " << graph->initDataSec << " s"
             << std::endl;
+  std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
+            << std::endl;
+  std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
   return;
@@ -555,7 +559,7 @@ void PR64(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         graph->thrustFrontier, graph->thrustFrontier + *(graph->numVertices), 0,
         thrust::plus<uint64>());
 
-    Timer timer("Execution time: ");
+    Timer timer("Execution time: ", true);
     while (*(graph->frontierSize)) {
       // std::cout << "Frontier size: " << *graph->frontierSize << std::endl;
 
@@ -1010,7 +1014,7 @@ void PR64(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
           0, thrust::plus<uint64>());
     }
 
-    totalDuration += timer.GetDuration();
+    totalDuration += timer.GetDurationSec();
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -1020,8 +1024,12 @@ void PR64(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
   std::cout << "Total amount of data sent with filter: " << MBytes << " MB"
             << std::endl;
 
-  std::cout << "Average execution time: " << totalDuration / nRuns << " ms"
+  std::cout << "\n===== Timing Summary =====" << std::endl;
+  std::cout << "Pre-data movement time:    " << graph->initDataSec << " s"
             << std::endl;
+  std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
+            << std::endl;
+  std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
   return;
@@ -1062,7 +1070,7 @@ void PR32_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         graph->thrustFrontier, graph->thrustFrontier + *(graph->numVertices), 0,
         thrust::plus<uint32>());
 
-    Timer timer("Execution time: ");
+    Timer timer("Execution time: ", true);
 
     while (*(graph->frontierSize)) {
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
@@ -1531,7 +1539,7 @@ void PR32_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
           0, thrust::plus<uint32>());
     }
 
-    totalDuration += timer.GetDuration();
+    totalDuration += timer.GetDurationSec();
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -1541,8 +1549,12 @@ void PR32_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
   std::cout << "Total amount of data sent with filter: " << MBytes << " MB"
             << std::endl;
 
-  std::cout << "Average execution time: " << totalDuration / nRuns << " ms"
+  std::cout << "\n===== Timing Summary =====" << std::endl;
+  std::cout << "Pre-data movement time:    " << graph->initDataSec << " s"
             << std::endl;
+  std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
+            << std::endl;
+  std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
   return;
@@ -1583,7 +1595,7 @@ void PR64_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         graph->thrustFrontier, graph->thrustFrontier + *(graph->numVertices), 0,
         thrust::plus<uint64>());
 
-    Timer timer("Execution time: ");
+    Timer timer("Execution time: ", true);
 
     while (*(graph->frontierSize)) {
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
@@ -2051,7 +2063,7 @@ void PR64_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
           0, thrust::plus<uint32>());
     }
 
-    totalDuration += timer.GetDuration();
+    totalDuration += timer.GetDurationSec();
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -2061,8 +2073,12 @@ void PR64_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
   std::cout << "Total amount of data sent with filter: " << MBytes << " MB"
             << std::endl;
 
-  std::cout << "Average execution time: " << totalDuration / nRuns << " ms"
+  std::cout << "\n===== Timing Summary =====" << std::endl;
+  std::cout << "Pre-data movement time:    " << graph->initDataSec << " s"
             << std::endl;
+  std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
+            << std::endl;
+  std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
   return;

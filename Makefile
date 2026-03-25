@@ -4,7 +4,7 @@ NVCC = nvcc
 
 # Compiler flags
 # -Xcompiler -fopenmp for OpenMP apps
-NVCCFLAGS = -O0 -g -arch=sm_80 -lnuma -I$(HOME)/local/include -L$(HOME)/local/lib 
+NVCCFLAGS = -O3 -arch=sm_86 -lnuma -I$(HOME)/local/include -L$(HOME)/local/lib
 
 # Directories
 SRCDIR = src

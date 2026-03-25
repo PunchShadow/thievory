@@ -5,3 +5,6 @@ bin/*
 nsys/
 main
 teste
+datasets
+result/*
+results

@@ -49,7 +49,7 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
         graph->thrustFrontier, graph->thrustFrontier + *(graph->numVertices), 0,
         thrust::plus<uint32>());
 
-    Timer timer("Execution time: ");
+    Timer timer("Execution time: ", true);
     while (*(graph->frontierSize)) {
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
@@ -539,7 +539,7 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
           0, thrust::plus<uint32>());
     }
 
-    totalDuration += timer.GetDuration();
+    totalDuration += timer.GetDurationSec();
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -549,8 +549,12 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
   std::cout << "Total amount of data sent with filter: " << MBytes << " MB"
             << std::endl;
 
-  std::cout << "Average execution time: " << totalDuration / nRuns << " ms"
+  std::cout << "\n===== Timing Summary =====" << std::endl;
+  std::cout << "Pre-data movement time:    " << graph->initDataSec << " s"
             << std::endl;
+  std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
+            << std::endl;
+  std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
   return;
@@ -597,7 +601,7 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
         graph->thrustFrontier, graph->thrustFrontier + *(graph->numVertices), 0,
         thrust::plus<uint64>());
 
-    Timer timer("Execution time: ");
+    Timer timer("Execution time: ", true);
     while (*(graph->frontierSize)) {
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
@@ -1087,7 +1091,7 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
           0, thrust::plus<uint64>());
     }
 
-    totalDuration += timer.GetDuration();
+    totalDuration += timer.GetDurationSec();
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -1097,8 +1101,12 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
   std::cout << "Total amount of data sent with filter: " << MBytes << " MB"
             << std::endl;
 
-  std::cout << "Average execution time: " << totalDuration / nRuns << " ms"
+  std::cout << "\n===== Timing Summary =====" << std::endl;
+  std::cout << "Pre-data movement time:    " << graph->initDataSec << " s"
             << std::endl;
+  std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
+            << std::endl;
+  std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
   return;

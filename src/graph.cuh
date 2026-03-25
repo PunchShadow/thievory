@@ -4,9 +4,17 @@
 #include "common.cuh"
 #include "numa.h"
 
+#include <algorithm>
 #include <fstream>
 #include <string>
 #include <vector>
+
+static std::string getFileExtension(const std::string &path) {
+  auto pos = path.find_last_of('.');
+  if (pos != std::string::npos)
+    return path.substr(pos + 1);
+  return "";
+}
 
 template <class EdgeType> class CSR {
 public:
@@ -137,6 +145,9 @@ public:
   // Sets the maximum partition size for edges in static memory
   void SetNumStaticEdges();
 
+  // Timing: pre-data movement (InitData) in seconds
+  float initDataSec = 0.0f;
+
   // Initializes graph
   void InitData();
 
@@ -195,6 +206,10 @@ template <class EdgeType> void CSR<EdgeType>::SetFrontierToRatio(float ratio) {
 }
 
 template <class EdgeType> void CSR<EdgeType>::ResetFrontierNValues() {
+  // Re-initialize host frontier and values from scratch so that prior
+  // modifications (e.g. SetFrontierToRatio) do not corrupt the state.
+  InitFrontierNValues();
+
   if (algorithm == PR) {
     cudaMemcpy(d_valuesPR, h_valuesPR, *numVertices * sizeof(*h_valuesPR),
                cudaMemcpyHostToDevice);
@@ -342,7 +357,7 @@ template <class EdgeType> void CSR<EdgeType>::SetNumStaticEdges() {
 
 // TODO: verificar se damos allocs desnecessarios
 template <class EdgeType> void CSR<EdgeType>::InitData() {
-  Timer timer(std::string("InitData execution time: "));
+  Timer timer(std::string("InitData time: "), true);
 
   GPUAssert(cudaStreamCreate(&frontierStream));
   GPUAssert(cudaStreamCreate(&staticStream));
@@ -634,6 +649,10 @@ template <class EdgeType> void CSR<EdgeType>::InitData() {
 
   avgVertPerPart = (double)*numVertices / *numPartitions;
 
+  cudaDeviceSynchronize();
+  initDataSec = timer.GetDurationSec();
+  std::cout << "Pre-data movement time: " << initDataSec << " s" << std::endl;
+
   return;
 }
 
@@ -695,7 +714,9 @@ void CSR<EdgeType>::ReadInputFile(const std::string &filePath,
   cudaHostAlloc((void **)&numVertices, sizeof(*numVertices),
                 cudaHostAllocMapped);
 
-  uint64 nV;
+  std::string ext = getFileExtension(filePath);
+  bool isBcsr = (ext == "bcsr");
+  bool isBwcsr = (ext == "bwcsr");
 
   std::ifstream infile(filePath, std::ios::in | std::ios::binary);
 
@@ -704,18 +725,44 @@ void CSR<EdgeType>::ReadInputFile(const std::string &filePath,
     exit(0);
   }
 
-  infile.read((char *)&nV, sizeof(uint64));
-  infile.read((char *)&numEdges, sizeof(uint64));
+  if (isBcsr || isBwcsr) {
+    // Subway binary format: uint32 num_nodes, uint32 num_edges,
+    // uint32[num_nodes] nodePointer, then edges
+    uint32 nV32, nE32;
+    infile.read((char *)&nV32, sizeof(uint32));
+    infile.read((char *)&nE32, sizeof(uint32));
 
-  *numVertices = static_cast<EdgeType>(nV);
+    *numVertices = static_cast<EdgeType>(nV32);
+    numEdges = static_cast<uint64>(nE32);
 
-  std::cout << "Num Vertices: " << *numVertices << std::endl;
-  std::cout << "Num Edges: " << numEdges << std::endl;
+    std::cout << "Reading " << ext << " format" << std::endl;
+    std::cout << "Num Vertices: " << *numVertices << std::endl;
+    std::cout << "Num Edges: " << numEdges << std::endl;
 
-  h_offsets = new uint64[*numVertices + 1];
-  infile.read((char *)h_offsets, (*numVertices) * sizeof(uint64));
+    // Read uint32 offsets and convert to uint64
+    uint32 *tmpOffsets = new uint32[*numVertices];
+    infile.read((char *)tmpOffsets, (*numVertices) * sizeof(uint32));
 
-  h_offsets[*numVertices] = numEdges;
+    h_offsets = new uint64[*numVertices + 1];
+    for (uint32 i = 0; i < *numVertices; i++)
+      h_offsets[i] = static_cast<uint64>(tmpOffsets[i]);
+    h_offsets[*numVertices] = numEdges;
+    delete[] tmpOffsets;
+  } else {
+    // Thievory native binary format: uint64 header + uint64 offsets
+    uint64 nV;
+    infile.read((char *)&nV, sizeof(uint64));
+    infile.read((char *)&numEdges, sizeof(uint64));
+
+    *numVertices = static_cast<EdgeType>(nV);
+
+    std::cout << "Num Vertices: " << *numVertices << std::endl;
+    std::cout << "Num Edges: " << numEdges << std::endl;
+
+    h_offsets = new uint64[*numVertices + 1];
+    infile.read((char *)h_offsets, (*numVertices) * sizeof(uint64));
+    h_offsets[*numVertices] = numEdges;
+  }
 
   std::unordered_map<uint32, bool> allocatedNumaNodes;
 
@@ -743,37 +790,69 @@ void CSR<EdgeType>::ReadInputFile(const std::string &filePath,
                      cudaHostRegisterMapped);
   }
 
-  // cudaHostGetDevicePointer(&d_edges, h_edges, 0);
-
   allocatedNumaNodes[defaultNumaNode] = true;
-  // cudaMallocManaged((void **)&h_edges, numEdges * sizeof(EdgeType));
-  //
-  // cudaMemAdvise(h_edges, numEdges * sizeof(EdgeType),
-  //               cudaMemAdviseSetAccessedBy, 0);
 
-  infile.read((char *)h_edges2[GPUAffinityMap[0]], numEdges * sizeof(uint32));
+  if (isBwcsr) {
+    // bwcsr: interleaved {uint32 end, uint32 w8} per edge
+    // Read all edge structs at once, then separate into edges and weights
+    struct OutEdgeWeighted {
+      uint32 end;
+      uint32 w8;
+    };
 
-  if (algorithm == SSSP) {
-    // uint64 *tempWeights = new uint64[numEdges];
-    // infile.read((char *)tempWeights, numEdges * sizeof(uint64));
+    OutEdgeWeighted *buf = new OutEdgeWeighted[numEdges];
+    infile.read((char *)buf, numEdges * sizeof(OutEdgeWeighted));
 
-    // Allocate on default Numa Node
-    h_weights = (EdgeType *)numa_alloc_onnode(numEdges * sizeof(EdgeType), 0);
+    for (uint64 i = 0; i < numEdges; i++)
+      h_edges2[GPUAffinityMap[0]][i] = static_cast<EdgeType>(buf[i].end);
 
-    // Pin the memory
-    cudaHostRegister(h_weights, numEdges * sizeof(EdgeType),
-                     cudaHostRegisterMapped);
+    if (algorithm == SSSP) {
+      h_weights = (EdgeType *)numa_alloc_onnode(numEdges * sizeof(EdgeType),
+                                                defaultNumaNode);
+      cudaHostRegister(h_weights, numEdges * sizeof(EdgeType),
+                       cudaHostRegisterMapped);
+      cudaHostGetDevicePointer(&d_weights, h_weights, 0);
 
-    cudaHostGetDevicePointer(&d_weights, h_weights, 0);
+      for (uint64 i = 0; i < numEdges; i++)
+        h_weights[i] = static_cast<EdgeType>(buf[i].w8);
+    }
 
-    // Replace with file read
-    for (int i = 0; i < numEdges; ++i)
-      h_weights[i] = 20;
+    delete[] buf;
+  } else if (isBcsr) {
+    // bcsr: OutEdge {uint32 end} per edge — just packed uint32 destinations
+    infile.read((char *)h_edges2[GPUAffinityMap[0]],
+                numEdges * sizeof(uint32));
 
-  } else if (algorithm == PR && type == "pull") {
-    h_degree = new uint32[*numVertices];
+    if (algorithm == SSSP) {
+      h_weights = (EdgeType *)numa_alloc_onnode(numEdges * sizeof(EdgeType),
+                                                defaultNumaNode);
+      cudaHostRegister(h_weights, numEdges * sizeof(EdgeType),
+                       cudaHostRegisterMapped);
+      cudaHostGetDevicePointer(&d_weights, h_weights, 0);
 
-    infile.read((char *)h_degree, *numVertices * sizeof(uint32));
+      // No weights in bcsr — use default weight
+      for (uint64 i = 0; i < numEdges; i++)
+        h_weights[i] = 1;
+    }
+  } else {
+    // Thievory native format
+    infile.read((char *)h_edges2[GPUAffinityMap[0]],
+                numEdges * sizeof(uint32));
+
+    if (algorithm == SSSP) {
+      h_weights =
+          (EdgeType *)numa_alloc_onnode(numEdges * sizeof(EdgeType), 0);
+      cudaHostRegister(h_weights, numEdges * sizeof(EdgeType),
+                       cudaHostRegisterMapped);
+      cudaHostGetDevicePointer(&d_weights, h_weights, 0);
+
+      // Replace with file read
+      for (uint64 i = 0; i < numEdges; ++i)
+        h_weights[i] = 20;
+    } else if (algorithm == PR && type == "pull") {
+      h_degree = new uint32[*numVertices];
+      infile.read((char *)h_degree, *numVertices * sizeof(uint32));
+    }
   }
 
   infile.close();

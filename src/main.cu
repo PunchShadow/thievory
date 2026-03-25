@@ -14,30 +14,19 @@ enum BYTES {
 };
 
 void usage(const char *program_name) {
-  std::cout << "Usage: " << program_name << std::endl;
+  std::cout << "Usage: " << program_name << " --input <path> [options]\n"
+            << std::endl;
   std::cout << "Options:" << std::endl;
-  std::cout << "  --input : Specify the path to graph input " << std::endl;
-  std::cout << "  --algo : Specify the algorithm {'bfs', 'cc', 'pr', 'sssp'} "
-               "(default = 'bfs')"
-            << std::endl;
-  std::cout << "  --edgeSize : Specify the edge size {4, 8} (default = 4)"
-            << std::endl;
-
-  std::cout
-      << "  --type : Specify PageRank type {'push', 'pull'} (default = 'push')"
-      << std::endl;
-
-  std::cout
-      << "  --source : Specify the source vertex {0, 1, 2, ...} (default = 1)"
-      << std::endl;
-  std::cout
-      << "  --runs : Specify the number of runs {0, 1, 2, ...} (default = 1) "
-      << std::endl;
-
-  std::cout << "  --gpus : Specify the number of NEIGHBOR GPUs {0, 1, 2, ...} "
-               "(default = 0)"
-            << std::endl;
-
+  std::cout << "  --input <path>    Path to graph input (required)" << std::endl;
+  std::cout << "                    Supported formats: .csr (native), .bcsr (Subway), .bwcsr (Subway weighted)" << std::endl;
+  std::cout << "  --algo <name>     Algorithm to run: bfs, cc, pr, sssp (default: bfs)" << std::endl;
+  std::cout << "  --edgeSize <N>    Edge index size in bytes: 4 or 8 (default: 4)" << std::endl;
+  std::cout << "  --type <name>     PageRank variant: push or pull (default: push)" << std::endl;
+  std::cout << "  --source <N>      Source vertex for BFS/SSSP (default: 1)" << std::endl;
+  std::cout << "  --runs <N>        Number of runs (default: 1)" << std::endl;
+  std::cout << "  --gpus <N>        Number of neighbor GPUs (default: 0)" << std::endl;
+  std::cout << "  --device <N>      GPU device ID to use (default: 0)" << std::endl;
+  std::cout << "  -h, --help        Show this help message" << std::endl;
   exit(0);
 }
 
@@ -88,6 +77,11 @@ int main(int argc, char **argv) {
   uint32 nNGPUs = 0;
   uint32 defaultDevice = 0;
 
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
+      usage(argv[0]);
+  }
+
   try {
     for (unsigned int i = 1; i < argc - 1; i = i + 2) {
       if (strcmp(argv[i], "--input") == 0) {
@@ -113,7 +107,10 @@ int main(int argc, char **argv) {
     exit(0);
   }
 
-  if (!hasInput) exit(0);
+  if (!hasInput) {
+    std::cerr << "Error: --input is required.\n" << std::endl;
+    usage(argv[0]);
+  }
 
   std::string topoOutput = runNvidiaSmiTopo();
 
