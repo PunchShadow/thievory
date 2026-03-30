@@ -1,22 +1,5 @@
 #include "pr_kernels.cuh"
 
-// Atomic addition for double values
-__device__ double atomicAddDouble(double *address, double val) {
-  unsigned long long int *address_as_ull = (unsigned long long int *)address;
-  unsigned long long int old = *address_as_ull, assumed;
-
-  do {
-    assumed = old;
-    old = atomicCAS(address_as_ull, assumed,
-                    __double_as_longlong(val + __longlong_as_double(assumed)));
-
-    // Note: uses integer comparison to avoid hang in case of NaN (since NaN !=
-    // NaN)
-  } while (assumed != old);
-
-  return __longlong_as_double(old);
-}
-
 // Pull
 
 // Testar o mesmo metodo com warps que utilizamos pro demand
@@ -24,8 +7,8 @@ __global__ void PR32_Static_Kernel(const uint32 *staticSize,
                                    const uint32 *d_staticList,
                                    const uint64 *d_offsets,
                                    const uint32 *d_staticEdges,
-                                   double *d_valuesPR, uint32 *d_outDegree,
-                                   double *d_sum, const bool *d_inStatic) {
+                                   float *d_valuesPR, uint32 *d_outDegree,
+                                   float *d_sum, const bool *d_inStatic) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   // const uint32 tid = blockDim.x * THREADS_PER_BLOCK * blockIdx.y +
   //                    blockDim.x * blockIdx.x + threadIdx.x;
@@ -46,7 +29,7 @@ __global__ void PR32_Static_Kernel(const uint32 *staticSize,
       uint32 neighborId = d_staticEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
-        double tempValue = d_valuesPR[neighborId] / d_outDegree[neighborId];
+        float tempValue = d_valuesPR[neighborId] / d_outDegree[neighborId];
         atomicAdd(&d_sum[vertexId], tempValue);
       }
     }
@@ -57,8 +40,8 @@ __global__ void PR64_Static_Kernel(const uint64 *staticSize,
                                    const uint64 *d_staticList,
                                    const uint64 *d_offsets,
                                    const uint64 *d_staticEdges,
-                                   double *d_valuesPR, uint32 *d_outDegree,
-                                   double *d_sum, const bool *d_inStatic) {
+                                   float *d_valuesPR, uint32 *d_outDegree,
+                                   float *d_sum, const bool *d_inStatic) {
   for (uint64 index = blockIdx.x * blockDim.x + threadIdx.x;
        index < *staticSize; index += blockDim.x * gridDim.x) {
     uint64 vertexId = d_staticList[index];
@@ -75,8 +58,8 @@ __global__ void PR64_Static_Kernel(const uint64 *staticSize,
         // If this new path has lower cost than the previous then change and add
         // the neighbor to the frontier
         if (d_outDegree[neighborId] != 0) {
-          double tempValue =
-              d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+          float tempValue =
+              d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
           atomicAdd(&d_sum[vertexId], tempValue);
         }
       }
@@ -87,8 +70,8 @@ __global__ void PR64_Static_Kernel(const uint64 *staticSize,
 __global__ void PR32_Demand_Kernel(const uint32 *demandSize,
                                    const uint32 *d_demandList,
                                    const uint32 *h_edges,
-                                   const uint64 *d_offsets, double *d_valuesPR,
-                                   uint32 *d_outDegree, double *d_sum,
+                                   const uint64 *d_offsets, float *d_valuesPR,
+                                   uint32 *d_outDegree, float *d_sum,
                                    const bool *d_inStatic) {
   // (Row) + (Column) + (Thread Offset)
   const uint32 tid = blockDim.x * THREADS_PER_BLOCK * blockIdx.y +
@@ -112,7 +95,7 @@ __global__ void PR32_Demand_Kernel(const uint32 *demandSize,
         uint32 neighborId = h_edges[i];
 
         if (d_outDegree[neighborId] != 0) {
-          double tempValue = d_valuesPR[neighborId] / d_outDegree[neighborId];
+          float tempValue = d_valuesPR[neighborId] / d_outDegree[neighborId];
           atomicAdd(&d_sum[vertexId], tempValue);
         }
       }
@@ -125,8 +108,8 @@ __global__ void PR32_Filter_Kernel(const uint32 *partitionList,
                                    uint32 *d_values, bool *d_frontier,
                                    const uint32 *d_filterEdges,
                                    const uint64 *d_offsets,
-                                   bool *d_filterFrontier, double *d_valuesPR,
-                                   uint32 *d_outDegree, double *d_sum) {
+                                   bool *d_filterFrontier, float *d_valuesPR,
+                                   uint32 *d_outDegree, float *d_sum) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -151,8 +134,8 @@ __global__ void PR32_Filter_Kernel(const uint32 *partitionList,
       uint32 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
-        double tempValue =
-            d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+        float tempValue =
+            d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
         atomicAdd(&d_sum[warpIdx], tempValue);
       }
     }
@@ -164,8 +147,8 @@ __global__ void PR64_Filter_Kernel(const uint32 *partitionList,
                                    uint64 *d_values, bool *d_frontier,
                                    const uint64 *d_filterEdges,
                                    const uint64 *d_offsets,
-                                   bool *d_filterFrontier, double *d_valuesPR,
-                                   uint32 *d_outDegree, double *d_sum) {
+                                   bool *d_filterFrontier, float *d_valuesPR,
+                                   uint32 *d_outDegree, float *d_sum) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -190,8 +173,8 @@ __global__ void PR64_Filter_Kernel(const uint32 *partitionList,
       uint32 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
-        double tempValue =
-            d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+        float tempValue =
+            d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
         atomicAdd(&d_sum[warpIdx], tempValue);
       }
     }
@@ -201,8 +184,8 @@ __global__ void PR64_Filter_Kernel(const uint32 *partitionList,
 __global__ void PR32_NeighborFilter_Kernel(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint32 *d_values,
     bool *d_frontier, const uint32 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, uint32 *d_outDegree,
-    double *d_sum) {
+    bool *d_filterFrontier, float *d_valuesPR, uint32 *d_outDegree,
+    float *d_sum) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -227,8 +210,8 @@ __global__ void PR32_NeighborFilter_Kernel(
       uint32 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
-        double tempValue =
-            d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+        float tempValue =
+            d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
         atomicAdd(&d_sum[warpIdx], tempValue);
       }
     }
@@ -238,8 +221,8 @@ __global__ void PR32_NeighborFilter_Kernel(
 __global__ void PR64_NeighborFilter_Kernel(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint64 *d_values,
     bool *d_frontier, const uint64 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, uint32 *d_outDegree,
-    double *d_sum) {
+    bool *d_filterFrontier, float *d_valuesPR, uint32 *d_outDegree,
+    float *d_sum) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -264,8 +247,8 @@ __global__ void PR64_NeighborFilter_Kernel(
       uint32 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
-        double tempValue =
-            d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+        float tempValue =
+            d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
         atomicAdd(&d_sum[warpIdx], tempValue);
       }
     }
@@ -274,8 +257,8 @@ __global__ void PR64_NeighborFilter_Kernel(
 __global__ void PR32_Static_NeighborFilter_Kernel(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint32 *d_values,
     bool *d_frontier, const uint32 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, uint32 *d_outDegree,
-    double *d_sum) {
+    bool *d_filterFrontier, float *d_valuesPR, uint32 *d_outDegree,
+    float *d_sum) {
   // {
   //   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   //   uint32 warpIdx = tid >> WARP_SHIFT;
@@ -302,8 +285,8 @@ __global__ void PR32_Static_NeighborFilter_Kernel(
   //       uint32 neighborId = d_filterEdges[i];
   //
   //       if (d_outDegree[neighborId] != 0) {
-  //         double tempValue =
-  //             d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+  //         float tempValue =
+  //             d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
   //         atomicAdd(&d_sum[warpIdx], tempValue);
   //       }
   //     }
@@ -332,8 +315,8 @@ __global__ void PR32_Static_NeighborFilter_Kernel(
       uint32 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
-        double tempValue =
-            d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+        float tempValue =
+            d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
         atomicAdd(&d_sum[warpIdx], tempValue);
       }
     }
@@ -343,8 +326,8 @@ __global__ void PR32_Static_NeighborFilter_Kernel(
 __global__ void PR64_Static_NeighborFilter_Kernel(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint64 *d_values,
     bool *d_frontier, const uint64 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, uint32 *d_outDegree,
-    double *d_sum) {
+    bool *d_filterFrontier, float *d_valuesPR, uint32 *d_outDegree,
+    float *d_sum) {
   // {
   //   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   //   uint32 warpIdx = tid >> WARP_SHIFT;
@@ -371,8 +354,8 @@ __global__ void PR64_Static_NeighborFilter_Kernel(
   //       uint32 neighborId = d_filterEdges[i];
   //
   //       if (d_outDegree[neighborId] != 0) {
-  //         double tempValue =
-  //             d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+  //         float tempValue =
+  //             d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
   //         atomicAdd(&d_sum[warpIdx], tempValue);
   //       }
   //     }
@@ -401,8 +384,8 @@ __global__ void PR64_Static_NeighborFilter_Kernel(
       uint32 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
-        double tempValue =
-            d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+        float tempValue =
+            d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
         atomicAdd(&d_sum[warpIdx], tempValue);
       }
     }
@@ -412,8 +395,8 @@ __global__ void PR64_Static_NeighborFilter_Kernel(
 __global__ void PR64_Demand_Kernel(const uint64 *demandSize,
                                    const uint64 *d_demandList,
                                    const uint64 *h_edges,
-                                   const uint64 *d_offsets, double *d_valuesPR,
-                                   uint32 *d_outDegree, double *d_sum,
+                                   const uint64 *d_offsets, float *d_valuesPR,
+                                   uint32 *d_outDegree, float *d_sum,
                                    const bool *d_inStatic) {
   // (Row) + (Column) + (Thread Offset)
   const uint32 tid = blockDim.x * THREADS_PER_BLOCK * blockIdx.y +
@@ -437,8 +420,8 @@ __global__ void PR64_Demand_Kernel(const uint64 *demandSize,
         uint64 neighborId = h_edges[i];
 
         if (d_outDegree[neighborId] != 0) {
-          double tempValue =
-              d_valuesPR[neighborId] / (double)d_outDegree[neighborId];
+          float tempValue =
+              d_valuesPR[neighborId] / (float)d_outDegree[neighborId];
           atomicAdd(&d_sum[vertexId], tempValue);
         }
       }
@@ -447,15 +430,15 @@ __global__ void PR64_Demand_Kernel(const uint64 *demandSize,
 }
 
 __global__ void PR32_Update_Values(const uint32 *numVertices,
-                                   double *d_valuesPR, double *d_sum,
+                                   float *d_valuesPR, float *d_sum,
                                    bool *d_frontier) {
   for (uint32 index = blockIdx.x * blockDim.x + threadIdx.x;
        index < *numVertices; index += blockDim.x * gridDim.x) {
     if (d_frontier[index]) {
-      double tempValue = (1 - ALPHA) + ALPHA * d_sum[index];
+      float tempValue = (1 - ALPHA) + ALPHA * d_sum[index];
       // K tempValue = 0.15*valueD[index] + 0.85*sumD[index];
 
-      double diff = tempValue > d_valuesPR[index]
+      float diff = tempValue > d_valuesPR[index]
                         ? (tempValue - d_valuesPR[index])
                         : (d_valuesPR[index] - tempValue);
       d_valuesPR[index] = tempValue;
@@ -476,15 +459,15 @@ __global__ void PR32_Update_Values(const uint32 *numVertices,
 }
 
 __global__ void PR64_Update_Values(const uint64 *numVertices,
-                                   double *d_valuesPR, double *d_sum,
+                                   float *d_valuesPR, float *d_sum,
                                    bool *d_frontier) {
   for (uint32 index = blockIdx.x * blockDim.x + threadIdx.x;
        index < *numVertices; index += blockDim.x * gridDim.x) {
     if (d_frontier[index]) {
-      double tempValue = (1 - ALPHA) + ALPHA * d_sum[index];
+      float tempValue = (1 - ALPHA) + ALPHA * d_sum[index];
       // K tempValue = 0.15*valueD[index] + 0.85*sumD[index];
 
-      double diff = tempValue > d_valuesPR[index]
+      float diff = tempValue > d_valuesPR[index]
                         ? (tempValue - d_valuesPR[index])
                         : (d_valuesPR[index] - tempValue);
       d_valuesPR[index] = tempValue;
@@ -504,7 +487,7 @@ __global__ void PR64_Update_Values(const uint64 *numVertices,
 __global__ void PR32_Static_Kernel_PUSH(
     const uint32 *staticSize, const uint32 *d_staticList,
     const uint64 *d_offsets, const uint32 *d_staticEdges, bool *d_frontier,
-    const bool *d_inStatic, double *d_delta, double *d_residual) {
+    const bool *d_inStatic, float *d_delta, float *d_residual) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   // const uint32 tid = blockDim.x * THREADS_PER_BLOCK * blockIdx.y +
   //                    blockDim.x * blockIdx.x + threadIdx.x;
@@ -546,7 +529,7 @@ __global__ void PR32_Static_Kernel_PUSH(
 __global__ void PR64_Static_Kernel_PUSH(
     const uint64 *staticSize, const uint64 *d_staticList,
     const uint64 *d_offsets, const uint64 *d_staticEdges, bool *d_frontier,
-    const bool *d_inStatic, double *d_delta, double *d_residual) {
+    const bool *d_inStatic, float *d_delta, float *d_residual) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   // const uint32 tid = blockDim.x * THREADS_PER_BLOCK * blockIdx.y +
   //                    blockDim.x * blockIdx.x + threadIdx.x;
@@ -589,7 +572,7 @@ __global__ void PR32_Demand_Kernel_PUSH(const uint32 *demandSize,
                                         const uint32 *d_demandList,
                                         bool *d_frontier, const uint32 *h_edges,
                                         const uint64 *d_offsets,
-                                        double *d_delta, double *d_residual) {
+                                        float *d_delta, float *d_residual) {
   // (Row) + (Column) + (Thread Offset)
   const uint32 tid = blockDim.x * THREADS_PER_BLOCK * blockIdx.y +
                      blockDim.x * blockIdx.x + threadIdx.x;
@@ -620,7 +603,7 @@ __global__ void PR64_Demand_Kernel_PUSH(const uint64 *demandSize,
                                         const uint64 *d_demandList,
                                         bool *d_frontier, const uint64 *h_edges,
                                         const uint64 *d_offsets,
-                                        double *d_delta, double *d_residual) {
+                                        float *d_delta, float *d_residual) {
   // (Row) + (Column) + (Thread Offset)
   const uint32 tid = blockDim.x * THREADS_PER_BLOCK * blockIdx.y +
                      blockDim.x * blockIdx.x + threadIdx.x;
@@ -650,8 +633,8 @@ __global__ void PR64_Demand_Kernel_PUSH(const uint64 *demandSize,
 __global__ void PR32_Filter_Kernel_PUSH(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint32 *d_values,
     bool *d_frontier, const uint32 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, double *d_residual,
-    double *d_delta) {
+    bool *d_filterFrontier, float *d_valuesPR, float *d_residual,
+    float *d_delta) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -683,8 +666,8 @@ __global__ void PR32_Filter_Kernel_PUSH(
 __global__ void PR64_Filter_Kernel_PUSH(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint64 *d_values,
     bool *d_frontier, const uint64 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, double *d_residual,
-    double *d_delta) {
+    bool *d_filterFrontier, float *d_valuesPR, float *d_residual,
+    float *d_delta) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -716,8 +699,8 @@ __global__ void PR64_Filter_Kernel_PUSH(
 __global__ void PR32_Static_Filter_Kernel_PUSH(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint32 *d_values,
     bool *d_frontier, const uint32 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, double *d_residual,
-    double *d_delta) {
+    bool *d_filterFrontier, float *d_valuesPR, float *d_residual,
+    float *d_delta) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -749,8 +732,8 @@ __global__ void PR32_Static_Filter_Kernel_PUSH(
 __global__ void PR64_Static_Filter_Kernel_PUSH(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint64 *d_values,
     bool *d_frontier, const uint64 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, double *d_residual,
-    double *d_delta) {
+    bool *d_filterFrontier, float *d_valuesPR, float *d_residual,
+    float *d_delta) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -781,8 +764,8 @@ __global__ void PR64_Static_Filter_Kernel_PUSH(
 __global__ void PR32_NeighborFilter_Kernel_PUSH(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint32 *d_values,
     bool *d_frontier, const uint32 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, double *d_residual,
-    double *d_delta) {
+    bool *d_filterFrontier, float *d_valuesPR, float *d_residual,
+    float *d_delta) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -814,8 +797,8 @@ __global__ void PR32_NeighborFilter_Kernel_PUSH(
 __global__ void PR64_NeighborFilter_Kernel_PUSH(
     const uint32 *partitionList, uint32 *d_partitionsOffsets, uint64 *d_values,
     bool *d_frontier, const uint64 *d_filterEdges, const uint64 *d_offsets,
-    bool *d_filterFrontier, double *d_valuesPR, double *d_residual,
-    double *d_delta) {
+    bool *d_filterFrontier, float *d_valuesPR, float *d_residual,
+    float *d_delta) {
   const uint32 tid = blockIdx.x * blockDim.x + threadIdx.x;
   uint32 warpIdx = tid >> WARP_SHIFT;
   const uint32 laneIdx = tid & ((1 << WARP_SHIFT) - 1);
@@ -844,15 +827,15 @@ __global__ void PR64_NeighborFilter_Kernel_PUSH(
   }
 }
 __global__ void PR32_Update_Values_PUSH(const uint32 *numVertices,
-                                        double *d_valuesPR, bool *d_frontier,
+                                        float *d_valuesPR, bool *d_frontier,
                                         const uint64 *d_offsets,
-                                        double *d_delta, double *d_residual) {
+                                        float *d_delta, float *d_residual) {
   for (uint32 index = blockIdx.x * blockDim.x + threadIdx.x;
        index < *numVertices; index += blockDim.x * gridDim.x) {
     if (d_residual[index] > TOLERANCE) {
       d_valuesPR[index] += d_residual[index];
-      d_delta[index] =
-          d_residual[index] * ALPHA / (d_offsets[index + 1] - d_offsets[index]);
+      uint64 deg = d_offsets[index + 1] - d_offsets[index];
+      d_delta[index] = (deg > 0) ? d_residual[index] * ALPHA / deg : 0.0f;
       d_residual[index] = 0.0f;
       d_frontier[index] = 1;
     }
@@ -860,15 +843,15 @@ __global__ void PR32_Update_Values_PUSH(const uint32 *numVertices,
 }
 
 __global__ void PR64_Update_Values_PUSH(const uint64 *numVertices,
-                                        double *d_valuesPR, bool *d_frontier,
+                                        float *d_valuesPR, bool *d_frontier,
                                         const uint64 *d_offsets,
-                                        double *d_delta, double *d_residual) {
+                                        float *d_delta, float *d_residual) {
   for (uint32 index = blockIdx.x * blockDim.x + threadIdx.x;
        index < *numVertices; index += blockDim.x * gridDim.x) {
     if (d_residual[index] > TOLERANCE) {
       d_valuesPR[index] += d_residual[index];
-      d_delta[index] =
-          d_residual[index] * ALPHA / (d_offsets[index + 1] - d_offsets[index]);
+      uint64 deg = d_offsets[index + 1] - d_offsets[index];
+      d_delta[index] = (deg > 0) ? d_residual[index] * ALPHA / deg : 0.0f;
       d_residual[index] = 0.0f;
       d_frontier[index] = 1;
     }

@@ -111,17 +111,17 @@ public:
   uint32 *h_degree; // Pull PR specific
   uint32 *d_degree; // Pull PR specific
 
-  double *h_valuesPR; // Host values array for each edge (PR only)
-  double *d_valuesPR; // Device values array for each edge (PR only)
+  float *h_valuesPR; // Host values array for each edge (PR only)
+  float *d_valuesPR; // Device values array for each edge (PR only)
 
-  double *d_sum;                          // PR only PUSH
-  thrust::device_ptr<double> d_thurstSum; // PR only PUSH
+  float *d_sum;                          // PR only PUSH
+  thrust::device_ptr<float> d_thurstSum; // PR only PUSH
 
-  double *d_delta;    // PR only PUSH
-  double *d_residual; // PR only PUSH
+  float *d_delta;    // PR only PUSH
+  float *d_residual; // PR only PUSH
 
-  double *h_delta;
-  double *h_residual;
+  float *h_delta;
+  float *h_residual;
 
   // Streams
   cudaStream_t staticStream, demandStream, frontierStream;
@@ -248,12 +248,12 @@ template <class EdgeType> void CSR<EdgeType>::InitFrontierNValues() {
       h_frontier[i] = 1;
 
       if (type == "push") {
-        h_valuesPR[i] = (double)(1.0f - ALPHA);
-        h_delta[i] = (double)((1.0f - ALPHA) * ALPHA /
-                              (h_offsets[i + 1] - h_offsets[i]));
-        h_residual[i] = (double)0.0f;
+        h_valuesPR[i] = 1.0f - ALPHA;
+        uint64 deg = h_offsets[i + 1] - h_offsets[i];
+        h_delta[i] = (deg > 0) ? (1.0f - ALPHA) * ALPHA / deg : 0.0f;
+        h_residual[i] = 0.0f;
       } else
-        h_valuesPR[i] = 1.0 / (*numVertices);
+        h_valuesPR[i] = 1.0f / (*numVertices);
     }
     break;
   case BFS:
@@ -430,11 +430,11 @@ template <class EdgeType> void CSR<EdgeType>::InitData() {
 
   if (algorithm == PR) {
     if (type == "push") {
-      h_delta = new double[*numVertices];
-      h_residual = new double[*numVertices];
+      h_delta = new float[*numVertices];
+      h_residual = new float[*numVertices];
     }
 
-    h_valuesPR = new double[*numVertices];
+    h_valuesPR = new float[*numVertices];
   } else
     h_values = new EdgeType[*numVertices];
 
@@ -522,7 +522,7 @@ template <class EdgeType> void CSR<EdgeType>::InitData() {
       GPUAssert(cudaMalloc(&d_sum, *numVertices * sizeof(*d_sum)));
       GPUAssert(cudaMemset(d_sum, 0, *numVertices * sizeof(*d_sum)));
 
-      d_thurstSum = thrust::device_ptr<double>(d_sum);
+      d_thurstSum = thrust::device_ptr<float>(d_sum);
     }
 
     GPUAssert(cudaMalloc(&d_valuesPR, *numVertices * sizeof(*d_valuesPR)));
