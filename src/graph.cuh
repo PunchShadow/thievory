@@ -593,17 +593,17 @@ template <class EdgeType> void CSR<EdgeType>::InitData() {
 
   for (uint32 i = 0; i < N_TARGET_FILTER_STREAMS; ++i) {
     GPUAssert(cudaMalloc(&d_filterEdges[i],
-                         maxEdgesInPartition * sizeof(*d_filterEdges)));
+                         maxEdgesInPartition * sizeof(**d_filterEdges)));
 
     GPUAssert(cudaMemset(d_filterEdges[i], 0,
-                         maxEdgesInPartition * sizeof(*d_filterEdges)));
+                         maxEdgesInPartition * sizeof(**d_filterEdges)));
 
     if (algorithm == SSSP) {
       GPUAssert(cudaMalloc(&d_filterWeights[i],
-                           maxEdgesInPartition * sizeof(*d_filterWeights)));
+                           maxEdgesInPartition * sizeof(**d_filterWeights)));
 
       GPUAssert(cudaMemset(d_filterWeights[i], 0,
-                           maxEdgesInPartition * sizeof(*d_filterWeights)));
+                           maxEdgesInPartition * sizeof(**d_filterWeights)));
     }
   }
 

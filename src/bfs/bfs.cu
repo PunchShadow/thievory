@@ -713,10 +713,10 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
           uint32 partition = partitionList[index];
 
           // Partition edge start
-          uint32 start =
+          uint64 start =
               graph->h_offsets[graph->h_partitionsOffsets[partition]];
 
-          uint32 partitionSize =
+          uint64 partitionSize =
               graph->h_offsets[graph->h_partitionsOffsets[partition + 1]] -
               start;
 
@@ -748,10 +748,10 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
             partition = partitionList[index];
 
             // Partition edge start
-            uint32 neighborStart =
+            uint64 neighborStart =
                 graph->h_offsets[graph->h_partitionsOffsets[partition]];
 
-            uint32 neighborPartitionSize =
+            uint64 neighborPartitionSize =
                 graph->h_offsets[graph->h_partitionsOffsets[partition + 1]] -
                 neighborStart;
 
@@ -815,15 +815,15 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
 
             uint32 processedPartition = graph->h_partitionList[tStream];
 
-            uint32 partitionStart =
+            uint64 partitionStart =
                 graph
                     ->h_offsets[graph->h_partitionsOffsets[processedPartition]];
 
-            uint32 partitionEnd =
+            uint64 partitionEnd =
                 graph->h_offsets[graph->h_partitionsOffsets[processedPartition +
                                                             1]];
 
-            uint32 processedPartitionSize = partitionEnd - partitionStart;
+            uint64 processedPartitionSize = partitionEnd - partitionStart;
 
             if (partitionEnd <= graph->numStaticEdges) {
               // cudaStreamSynchronize(staticStreams[processedPartition]);
@@ -868,15 +868,15 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
               numPartitionsOnNeighbors++;
               uint32 processedPartition = graph->h_nPartList[gpu][nStream];
 
-              uint32 partitionStart =
+              uint64 partitionStart =
                   graph->h_offsets
                       [graph->h_partitionsOffsets[processedPartition]];
 
-              uint32 partitionEnd =
+              uint64 partitionEnd =
                   graph->h_offsets
                       [graph->h_partitionsOffsets[processedPartition + 1]];
 
-              uint32 processedPartitionSize = partitionEnd - partitionStart;
+              uint64 processedPartitionSize = partitionEnd - partitionStart;
 
               if (partitionEnd <= graph->numStaticEdges) {
                 // Aqui
@@ -935,14 +935,14 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
 
           uint32 processedPartition = graph->h_partitionList[tStream];
 
-          uint32 partitionStart =
+          uint64 partitionStart =
               graph->h_offsets[graph->h_partitionsOffsets[processedPartition]];
 
-          uint32 partitionEnd =
+          uint64 partitionEnd =
               graph->h_offsets[graph->h_partitionsOffsets[processedPartition +
                                                           1]];
 
-          uint32 processedPartitionSize = partitionEnd - partitionStart;
+          uint64 processedPartitionSize = partitionEnd - partitionStart;
 
           if (partitionEnd <= graph->numStaticEdges) {
             // cudaStreamSynchronize(staticStreams[processedPartition]);
@@ -986,15 +986,15 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
 
             uint32 processedPartition = graph->h_nPartList[gpu][nStream];
 
-            uint32 partitionStart =
+            uint64 partitionStart =
                 graph
                     ->h_offsets[graph->h_partitionsOffsets[processedPartition]];
 
-            uint32 partitionEnd =
+            uint64 partitionEnd =
                 graph->h_offsets[graph->h_partitionsOffsets[processedPartition +
                                                             1]];
 
-            uint32 processedPartitionSize = partitionEnd - partitionStart;
+            uint64 processedPartitionSize = partitionEnd - partitionStart;
 
             if (partitionEnd <= graph->numStaticEdges) {
               // Aqui

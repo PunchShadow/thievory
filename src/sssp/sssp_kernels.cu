@@ -204,7 +204,7 @@ __global__ void SSSP64_Filter_Kernel(
 
   uint32 partition = partitionList[0];
   //  Start Edge
-  uint32 startEdge = d_offsets[d_partitionsOffsets[partition]];
+  uint64 startEdge = d_offsets[d_partitionsOffsets[partition]];
 
   for (warpIdx += d_partitionsOffsets[partition];
        warpIdx < d_partitionsOffsets[partition + 1]; warpIdx += numWarps) {
@@ -212,13 +212,13 @@ __global__ void SSSP64_Filter_Kernel(
 
     d_filterFrontier[warpIdx] = 0;
 
-    uint32 sourceValue = d_values[warpIdx];
+    uint64 sourceValue = d_values[warpIdx];
 
     const uint64 start = d_offsets[warpIdx] - startEdge;
     const uint64 end = d_offsets[warpIdx + 1] - startEdge;
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       uint64 newValue = sourceValue + d_filterWeights[i];
       // If this new path has lower cost than the previous then change and add
@@ -287,7 +287,7 @@ __global__ void SSSP64_NeighborFilter_Kernel(
   uint32 partition = partitionList[0];
   // uint32 touch;
   //  Start Edge
-  uint32 startEdge = d_offsets[d_partitionsOffsets[partition]];
+  uint64 startEdge = d_offsets[d_partitionsOffsets[partition]];
 
   // End Edge
   // uint32 endEdge = d_offsets[d_partitionsOffsets[partition + 1]];
@@ -307,13 +307,13 @@ __global__ void SSSP64_NeighborFilter_Kernel(
 
     d_filterFrontier[warpIdx] = 0;
 
-    uint32 sourceValue = d_values[warpIdx];
+    uint64 sourceValue = d_values[warpIdx];
 
     const uint64 start = d_offsets[warpIdx] - startEdge;
     const uint64 end = d_offsets[warpIdx + 1] - startEdge;
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       uint64 newValue = sourceValue + d_filterWeights[i];
       // If this new path has lower cost than the previous then change and add
@@ -469,13 +469,13 @@ __global__ void SSSP64_Static_Filter_Kernel(
 
     d_filterFrontier[warpIdx] = 0;
 
-    uint32 sourceValue = d_values[warpIdx];
+    uint64 sourceValue = d_values[warpIdx];
 
     const uint64 start = d_offsets[warpIdx];
     const uint64 end = d_offsets[warpIdx + 1];
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       uint64 newValue = sourceValue + d_filterWeights[i];
       // If this new path has lower cost than the previous then change and add

@@ -156,7 +156,7 @@ __global__ void PR64_Filter_Kernel(const uint32 *partitionList,
 
   uint32 partition = partitionList[0];
   //  Start Edge
-  uint32 startEdge = d_offsets[d_partitionsOffsets[partition]];
+  uint64 startEdge = d_offsets[d_partitionsOffsets[partition]];
 
   // Grid-Stride loop using Warp ID makes it easier to calculate with the .y
   // dimension
@@ -170,7 +170,7 @@ __global__ void PR64_Filter_Kernel(const uint32 *partitionList,
     const uint64 end = d_offsets[warpIdx + 1] - startEdge;
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
         float tempValue =
@@ -230,7 +230,7 @@ __global__ void PR64_NeighborFilter_Kernel(
 
   uint32 partition = partitionList[0];
   //  Start Edge
-  uint32 startEdge = d_offsets[d_partitionsOffsets[partition]];
+  uint64 startEdge = d_offsets[d_partitionsOffsets[partition]];
 
   // Grid-Stride loop using Warp ID makes it easier to calculate with the .y
   // dimension
@@ -244,7 +244,7 @@ __global__ void PR64_NeighborFilter_Kernel(
     const uint64 end = d_offsets[warpIdx + 1] - startEdge;
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
         float tempValue =
@@ -381,7 +381,7 @@ __global__ void PR64_Static_NeighborFilter_Kernel(
     const uint64 end = d_offsets[warpIdx + 1];
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       if (d_outDegree[neighborId] != 0) {
         float tempValue =
@@ -562,7 +562,7 @@ __global__ void PR64_Static_Kernel_PUSH(
     uint64 endNeighbor = d_offsets[vertexId + 1];
 
     for (uint64 i = startNeighbor + laneIdx; i < endNeighbor; i += WARP_SIZE) {
-      uint32 neighborId = d_staticEdges[i];
+      uint64 neighborId = d_staticEdges[i];
       atomicAdd(&d_residual[neighborId], d_delta[vertexId]);
     }
   }
@@ -622,7 +622,7 @@ __global__ void PR64_Demand_Kernel_PUSH(const uint64 *demandSize,
     const uint64 end = d_offsets[vertexId + 1];
 
     for (uint64 i = shiftStart + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = h_edges[i];
+      uint64 neighborId = h_edges[i];
 
       if (i >= start) atomicAdd(&d_residual[neighborId], d_delta[vertexId]);
     }
@@ -675,7 +675,7 @@ __global__ void PR64_Filter_Kernel_PUSH(
 
   uint32 partition = partitionList[0];
   //  Start Edge
-  uint32 startEdge = d_offsets[d_partitionsOffsets[partition]];
+  uint64 startEdge = d_offsets[d_partitionsOffsets[partition]];
 
   // Grid-Stride loop using Warp ID makes it easier to calculate with the .y
   // dimension
@@ -689,7 +689,7 @@ __global__ void PR64_Filter_Kernel_PUSH(
     const uint64 end = d_offsets[warpIdx + 1] - startEdge;
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       atomicAdd(&d_residual[neighborId], d_delta[warpIdx]);
     }
@@ -755,7 +755,7 @@ __global__ void PR64_Static_Filter_Kernel_PUSH(
     const uint64 end = d_offsets[warpIdx + 1];
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       atomicAdd(&d_residual[neighborId], d_delta[warpIdx]);
     }
@@ -806,7 +806,7 @@ __global__ void PR64_NeighborFilter_Kernel_PUSH(
 
   uint32 partition = partitionList[0];
   //  Start Edge
-  uint32 startEdge = d_offsets[d_partitionsOffsets[partition]];
+  uint64 startEdge = d_offsets[d_partitionsOffsets[partition]];
 
   // Grid-Stride loop using Warp ID makes it easier to calculate with the .y
   // dimension
@@ -820,7 +820,7 @@ __global__ void PR64_NeighborFilter_Kernel_PUSH(
     const uint64 end = d_offsets[warpIdx + 1] - startEdge;
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
-      uint32 neighborId = d_filterEdges[i];
+      uint64 neighborId = d_filterEdges[i];
 
       atomicAdd(&d_residual[neighborId], d_delta[warpIdx]);
     }
