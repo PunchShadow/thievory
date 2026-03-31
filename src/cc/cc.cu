@@ -100,6 +100,7 @@ void CC32(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
   graph->SetFrontierToRatio(0.1f);
   uint64 totalNumFilterPartitions = 0;
   float totalDuration = 0.0f;
+  uint32 totalIterations = 0;
   std::cout << "Starting Traversals" << std::endl;
   for (int test = 0; test < nRuns; test++) {
     graph->ResetFrontierNValues();
@@ -109,7 +110,9 @@ void CC32(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         thrust::plus<uint32>());
 
     Timer timer("Execution time: ", true);
+    uint32 iterCount = 0;
     while (*(graph->frontierSize)) {
+      iterCount++;
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
           graph->numVertices, graph->d_frontier, graph->d_staticFrontier,
@@ -597,6 +600,7 @@ void CC32(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
     }
 
     totalDuration += timer.GetDurationSec();
+    totalIterations += iterCount;
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -611,6 +615,7 @@ void CC32(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
             << std::endl;
   std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
             << std::endl;
+  std::cout << "Avg iterations:            " << (double)totalIterations / nRuns << std::endl;
   std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
@@ -649,6 +654,7 @@ void CC64(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
   graph->SetFrontierToRatio(0.1f);
   uint64 totalNumFilterPartitions = 0;
   float totalDuration = 0.0f;
+  uint32 totalIterations = 0;
   std::cout << "Starting Traversals" << std::endl;
   for (int test = 0; test < nRuns; test++) {
     graph->ResetFrontierNValues();
@@ -658,7 +664,9 @@ void CC64(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         thrust::plus<uint64>());
 
     Timer timer("Execution time: ", true);
+    uint32 iterCount = 0;
     while (*(graph->frontierSize)) {
+      iterCount++;
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
           graph->numVertices, graph->d_frontier, graph->d_staticFrontier,
@@ -1146,6 +1154,7 @@ void CC64(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
     }
 
     totalDuration += timer.GetDurationSec();
+    totalIterations += iterCount;
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -1160,6 +1169,7 @@ void CC64(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
             << std::endl;
   std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
             << std::endl;
+  std::cout << "Avg iterations:            " << (double)totalIterations / nRuns << std::endl;
   std::cout << "==========================" << std::endl;
 
   graph->DumpValues();

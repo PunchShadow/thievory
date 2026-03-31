@@ -715,6 +715,8 @@ void CSR<EdgeType>::ReadInputFile(const std::string &filePath,
                 cudaHostAllocMapped);
 
   std::string ext = getFileExtension(filePath);
+  bool isBcsr64 = (ext == "bcsr64");
+  bool isBwcsr64 = (ext == "bwcsr64");
   bool isBcsr = (ext == "bcsr");
   bool isBwcsr = (ext == "bwcsr");
 
@@ -725,7 +727,23 @@ void CSR<EdgeType>::ReadInputFile(const std::string &filePath,
     exit(0);
   }
 
-  if (isBcsr || isBwcsr) {
+  if (isBcsr64 || isBwcsr64) {
+    // 64-bit binary format: uint64 header, uint64 offsets, uint64 edges
+    uint64 nV64, nE64;
+    infile.read((char *)&nV64, sizeof(uint64));
+    infile.read((char *)&nE64, sizeof(uint64));
+
+    *numVertices = static_cast<EdgeType>(nV64);
+    numEdges = nE64;
+
+    std::cout << "Reading " << ext << " format" << std::endl;
+    std::cout << "Num Vertices: " << *numVertices << std::endl;
+    std::cout << "Num Edges: " << numEdges << std::endl;
+
+    h_offsets = new uint64[*numVertices + 1];
+    infile.read((char *)h_offsets, (*numVertices) * sizeof(uint64));
+    h_offsets[*numVertices] = numEdges;
+  } else if (isBcsr || isBwcsr) {
     // Subway binary format: uint32 num_nodes, uint32 num_edges,
     // uint32[num_nodes] nodePointer, then edges
     uint32 nV32, nE32;
@@ -792,7 +810,47 @@ void CSR<EdgeType>::ReadInputFile(const std::string &filePath,
 
   allocatedNumaNodes[defaultNumaNode] = true;
 
-  if (isBwcsr) {
+  if (isBwcsr64) {
+    // bwcsr64: interleaved {uint64 end, uint64 w8} per edge
+    struct OutEdgeWeighted64 {
+      uint64 end;
+      uint64 w8;
+    };
+
+    OutEdgeWeighted64 *buf = new OutEdgeWeighted64[numEdges];
+    infile.read((char *)buf, numEdges * sizeof(OutEdgeWeighted64));
+
+    for (uint64 i = 0; i < numEdges; i++)
+      h_edges2[GPUAffinityMap[0]][i] = static_cast<EdgeType>(buf[i].end);
+
+    if (algorithm == SSSP) {
+      h_weights = (EdgeType *)numa_alloc_onnode(numEdges * sizeof(EdgeType),
+                                                defaultNumaNode);
+      cudaHostRegister(h_weights, numEdges * sizeof(EdgeType),
+                       cudaHostRegisterMapped);
+      cudaHostGetDevicePointer(&d_weights, h_weights, 0);
+
+      for (uint64 i = 0; i < numEdges; i++)
+        h_weights[i] = static_cast<EdgeType>(buf[i].w8);
+    }
+
+    delete[] buf;
+  } else if (isBcsr64) {
+    // bcsr64: uint64 edges directly
+    infile.read((char *)h_edges2[GPUAffinityMap[0]],
+                numEdges * sizeof(EdgeType));
+
+    if (algorithm == SSSP) {
+      h_weights = (EdgeType *)numa_alloc_onnode(numEdges * sizeof(EdgeType),
+                                                defaultNumaNode);
+      cudaHostRegister(h_weights, numEdges * sizeof(EdgeType),
+                       cudaHostRegisterMapped);
+      cudaHostGetDevicePointer(&d_weights, h_weights, 0);
+
+      for (uint64 i = 0; i < numEdges; i++)
+        h_weights[i] = 1;
+    }
+  } else if (isBwcsr) {
     // bwcsr: interleaved {uint32 end, uint32 w8} per edge
     // Read all edge structs at once, then separate into edges and weights
     struct OutEdgeWeighted {

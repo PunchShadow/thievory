@@ -41,6 +41,7 @@ void BFS32(std::string filePath, uint32 srcVertex, uint32 nRuns,
   uint64 totalNumFilterPartitions = 0;
 
   float totalDuration = 0.0f;
+  uint32 totalIterations = 0;
 
   graph->SetFrontierToRatio(1.0f);
 
@@ -53,7 +54,9 @@ void BFS32(std::string filePath, uint32 srcVertex, uint32 nRuns,
         thrust::plus<uint32>());
 
     Timer timer("Execution time: ", true);
+    uint32 iterCount = 0;
     while (*(graph->frontierSize)) {
+      iterCount++;
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
           graph->numVertices, graph->d_frontier, graph->d_staticFrontier,
@@ -514,6 +517,7 @@ void BFS32(std::string filePath, uint32 srcVertex, uint32 nRuns,
 
     }
     totalDuration += timer.GetDurationSec();
+    totalIterations += iterCount;
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -528,6 +532,7 @@ void BFS32(std::string filePath, uint32 srcVertex, uint32 nRuns,
             << std::endl;
   std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
             << std::endl;
+  std::cout << "Avg iterations:            " << (double)totalIterations / nRuns << std::endl;
   std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
@@ -568,6 +573,7 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
   uint64 totalNumFilterPartitions = 0;
 
   float totalDuration = 0.0f;
+  uint32 totalIterations = 0;
 
   graph->SetFrontierToRatio(1.0f);
 
@@ -580,7 +586,9 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
         thrust::plus<uint64>());
 
     Timer timer("Execution time: ", true);
+    uint32 iterCount = 0;
     while (*(graph->frontierSize)) {
+      iterCount++;
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
           graph->numVertices, graph->d_frontier, graph->d_staticFrontier,
@@ -1041,6 +1049,7 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
           0, thrust::plus<uint64>());
     }
     totalDuration += timer.GetDurationSec();
+    totalIterations += iterCount;
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -1055,6 +1064,7 @@ void BFS64(std::string filePath, uint32 srcVertex, uint32 nRuns,
             << std::endl;
   std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
             << std::endl;
+  std::cout << "Avg iterations:            " << (double)totalIterations / nRuns << std::endl;
   std::cout << "==========================" << std::endl;
 
   graph->DumpValues();

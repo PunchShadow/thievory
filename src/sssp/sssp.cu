@@ -41,6 +41,7 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
   graph->SetFrontierToRatio(0.1f);
   uint64 totalNumFilterPartitions = 0;
   float totalDuration = 0.0f;
+  uint32 totalIterations = 0;
   std::cout << "Starting Traversals" << std::endl;
   for (int test = 0; test < nRuns; test++) {
     graph->ResetFrontierNValues();
@@ -50,7 +51,9 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
         thrust::plus<uint32>());
 
     Timer timer("Execution time: ", true);
+    uint32 iterCount = 0;
     while (*(graph->frontierSize)) {
+      iterCount++;
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
           graph->numVertices, graph->d_frontier, graph->d_staticFrontier,
@@ -540,6 +543,7 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
     }
 
     totalDuration += timer.GetDurationSec();
+    totalIterations += iterCount;
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -554,6 +558,7 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
             << std::endl;
   std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
             << std::endl;
+  std::cout << "Avg iterations:            " << (double)totalIterations / nRuns << std::endl;
   std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
@@ -593,6 +598,7 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
   graph->SetFrontierToRatio(0.1f);
   uint64 totalNumFilterPartitions = 0;
   float totalDuration = 0.0f;
+  uint32 totalIterations = 0;
   std::cout << "Starting Traversals" << std::endl;
   for (int test = 0; test < nRuns; test++) {
     graph->ResetFrontierNValues();
@@ -602,7 +608,9 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
         thrust::plus<uint64>());
 
     Timer timer("Execution time: ", true);
+    uint32 iterCount = 0;
     while (*(graph->frontierSize)) {
+      iterCount++;
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
           graph->numVertices, graph->d_frontier, graph->d_staticFrontier,
@@ -1092,6 +1100,7 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
     }
 
     totalDuration += timer.GetDurationSec();
+    totalIterations += iterCount;
   }
 
   const uint64 partitionSizeMB = PARTITION_SIZE_MB / (1024 * 1024);  // 1024^2
@@ -1106,6 +1115,7 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
             << std::endl;
   std::cout << "Avg computation time:      " << totalDuration / nRuns << " s"
             << std::endl;
+  std::cout << "Avg iterations:            " << (double)totalIterations / nRuns << std::endl;
   std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
