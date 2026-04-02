@@ -45,29 +45,20 @@ __global__ void SSSP32_Static_Kernel(const uint32 *staticSize,
   // // Grid-Stride loop using Warp ID makes it easier to calculate with the .y
   // dimension
   for (; warpIdx < *staticSize; warpIdx += numWarps) {
-    // if (!d_staticFrontier[warpIdx])
-    //     continue;
-
-    // const uint32 traverseIndex = warpIdx;
     uint32 vertexId = d_staticList[warpIdx];
-
-    uint32 newValue = d_values[vertexId] + 20;
+    uint32 sourceValue = d_values[vertexId];
 
     const uint64 start = d_offsets[vertexId];
     const uint64 end = d_offsets[vertexId + 1];
 
     for (uint64 i = start + laneIdx; i < end; i += WARP_SIZE) {
       uint32 neighborId = d_staticEdges[i];
-
-      // uint32 newValue = sourceValue + d_staticWeights[i];
-      //  If this new path has lower cost than the previous then change and add
-      //  the neighbor to the frontier
+      uint32 newValue = sourceValue + d_staticWeights[i];
       if (newValue < d_values[neighborId]) {
         atomicMin(&d_values[neighborId], newValue);
         d_frontier[neighborId] = 1;
       }
     }
-    // d_staticFrontier[warpIdx] = 0;
   }
 }
 

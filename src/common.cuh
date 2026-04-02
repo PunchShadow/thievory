@@ -182,4 +182,19 @@ __global__ void SplitZeroCopyNFilterFrontiers(
   }
 }
 
+// SSSP-only: restore filter vertices onto the demand frontier so the demand
+// kernel also relaxes them in a single full-frontier pass.  This prevents the
+// sequential partition-by-partition filter processing from leaving stale
+// intermediate distances with non-uniform weights.
+template <typename EdgeType>
+__global__ void RestoreDemandFromFilter(EdgeType *numVertices,
+                                        bool *d_demandFrontier,
+                                        const bool *d_filterFrontier) {
+  for (EdgeType v = blockIdx.x * blockDim.x + threadIdx.x; v < *numVertices;
+       v += blockDim.x * gridDim.x) {
+    if (d_filterFrontier[v])
+      d_demandFrontier[v] = 1;
+  }
+}
+
 #endif // COMMON_CUH

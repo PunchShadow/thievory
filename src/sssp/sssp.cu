@@ -90,6 +90,11 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
                 graph->d_offsets, graph->d_partitionCost,
                 graph->d_demandFrontier, graph->d_filterFrontier);
 
+        RestoreDemandFromFilter<uint32>
+            <<<staticGrid, blockDim, 0, graph->demandStream>>>(
+                graph->numVertices, graph->d_demandFrontier,
+                graph->d_filterFrontier);
+
         cudaStreamSynchronize(graph->demandStream);
 
         cudaMemcpyAsync(graph->h_partitionCost, graph->d_partitionCost,
@@ -646,6 +651,11 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
                 graph->numPartitions, graph->d_partitionsOffsets,
                 graph->d_offsets, graph->d_partitionCost,
                 graph->d_demandFrontier, graph->d_filterFrontier);
+
+        RestoreDemandFromFilter<uint64>
+            <<<staticGrid, blockDim, 0, graph->demandStream>>>(
+                graph->numVertices, graph->d_demandFrontier,
+                graph->d_filterFrontier);
 
         cudaStreamSynchronize(graph->demandStream);
 

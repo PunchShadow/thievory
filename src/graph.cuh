@@ -631,10 +631,6 @@ template <class EdgeType> void CSR<EdgeType>::InitData() {
 
   // Static Weights Array for SSSP
   if (algorithm == SSSP) {
-
-    for (uint32 i = 0; i < numEdges; i++)
-      h_weights[i] = 20;
-
     GPUAssert(cudaMalloc(&d_staticWeights,
                          numStaticEdges * sizeof(*d_staticWeights)));
   }
@@ -914,6 +910,12 @@ void CSR<EdgeType>::ReadInputFile(const std::string &filePath,
   }
 
   infile.close();
+
+  // Copy weights to NUMA-pinned h_weights2 so demand/filter kernels see valid data
+  if (algorithm == SSSP) {
+    memcpy(h_weights2[GPUAffinityMap[0]], h_weights,
+           numEdges * sizeof(EdgeType));
+  }
 
   for (const auto &pair : numaNodeToIndex) {
     uint32 numaNode = pair.first;
