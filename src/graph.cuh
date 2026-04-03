@@ -311,6 +311,15 @@ template <class EdgeType> void CSR<EdgeType>::SetPartitionsConfig() {
   *numPartitions = h_partitionsOffsets.size() - 1;
   h_partitionCost = new float[*numPartitions];
 
+  // Update maxEdgesInPartition to the actual largest partition so that
+  // d_filterEdges buffers are allocated large enough for every partition.
+  for (uint32 p = 0; p < *numPartitions; p++) {
+    uint64 edgesInPart =
+        h_offsets[h_partitionsOffsets[p + 1]] - h_offsets[h_partitionsOffsets[p]];
+    if (edgesInPart > maxEdgesInPartition)
+      maxEdgesInPartition = edgesInPart;
+  }
+
   std::cout << "Maximum number of edges per partition: " << maxEdgesInPartition
             << std::endl;
   std::cout << "Number of partitions: " << *numPartitions << std::endl;

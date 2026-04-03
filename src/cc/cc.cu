@@ -1150,7 +1150,7 @@ void CC64(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
 
       *(graph->frontierSize) = thrust::reduce(
           graph->thrustFrontier, graph->thrustFrontier + *(graph->numVertices),
-          0, thrust::plus<uint32>());
+          0, thrust::plus<uint64>());
     }
 
     totalDuration += timer.GetDurationSec();
