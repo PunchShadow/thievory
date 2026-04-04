@@ -202,7 +202,7 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
 
           cudaMemcpyAsync(graph->d_filterWeights[stream],
                           &graph->h_weights2[graph->GPUAffinityMap[0]][start],
-                          partitionSize * sizeof(*graph->h_weights),
+                          partitionSize * sizeof(*graph->h_edges),
                           cudaMemcpyHostToDevice, graph->streams[stream]);
 
           cudaMemcpyAsync(&graph->d_partitionList[stream],
@@ -250,7 +250,7 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
             cudaMemcpyAsync(
                 graph->d_nFilterWeights[gpu][neighborStream],
                 graph->h_weights2[graph->GPUAffinityMap[0]] + neighborStart,
-                neighborPartitionSize * sizeof(*graph->h_weights),
+                neighborPartitionSize * sizeof(*graph->h_edges),
                 cudaMemcpyHostToDevice,
                 graph->neighborMemCpyStreams[gpu][neighborStream]);
 
@@ -764,7 +764,7 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
 
           cudaMemcpyAsync(graph->d_filterWeights[stream],
                           &graph->h_weights2[graph->GPUAffinityMap[0]][start],
-                          partitionSize * sizeof(*graph->h_weights),
+                          partitionSize * sizeof(*graph->h_edges),
                           cudaMemcpyHostToDevice, graph->streams[stream]);
 
           cudaMemcpyAsync(&graph->d_partitionList[stream],
@@ -812,7 +812,7 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
             cudaMemcpyAsync(
                 graph->d_nFilterWeights[gpu][neighborStream],
                 graph->h_weights2[graph->GPUAffinityMap[0]] + neighborStart,
-                neighborPartitionSize * sizeof(*graph->h_weights),
+                neighborPartitionSize * sizeof(*graph->h_edges),
                 cudaMemcpyHostToDevice,
                 graph->neighborMemCpyStreams[gpu][neighborStream]);
 
