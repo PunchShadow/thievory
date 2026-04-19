@@ -26,6 +26,7 @@ void usage(const char *program_name) {
   std::cout << "  --runs <N>        Number of runs (default: 1)" << std::endl;
   std::cout << "  --gpus <N>        Number of neighbor GPUs (default: 0)" << std::endl;
   std::cout << "  --device <N>      GPU device ID to use (default: 0)" << std::endl;
+  std::cout << "  --verify          Run parallel CPU Bellman-Ford and compare (SSSP only)" << std::endl;
   std::cout << "  -h, --help        Show this help message" << std::endl;
   exit(0);
 }
@@ -76,14 +77,27 @@ int main(int argc, char **argv) {
   uint32 nRuns = 1;
   uint32 nNGPUs = 0;
   uint32 defaultDevice = 0;
+  bool verify = false;
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
       usage(argv[0]);
   }
 
+  // First pass: handle flags with no value (e.g. --verify).
   try {
+    for (int i = 1; i < argc; i++) {
+      if (strcmp(argv[i], "--verify") == 0) {
+        verify = true;
+      }
+    }
+
     for (unsigned int i = 1; i < argc - 1; i = i + 2) {
+      // Skip standalone flags so the (i, i+1) parsing below stays aligned.
+      if (strcmp(argv[i], "--verify") == 0) {
+        i--; // -1 so the +2 lands on the next real arg
+        continue;
+      }
       if (strcmp(argv[i], "--input") == 0) {
         filePath = std::string(argv[i + 1]);
         hasInput = true;
@@ -176,10 +190,10 @@ int main(int argc, char **argv) {
     std::cout << "Source vertex is: " << srcVertex << std::endl;
 
     if (edgeSize == _4BYTE)
-      SSSP32(filePath, srcVertex, nRuns, nNGPUs, numaAffinities);
+      SSSP32(filePath, srcVertex, nRuns, nNGPUs, numaAffinities, verify);
 
     else if (edgeSize == _8BYTE)
-      SSSP64(filePath, srcVertex, nRuns, nNGPUs, numaAffinities);
+      SSSP64(filePath, srcVertex, nRuns, nNGPUs, numaAffinities, verify);
 
     else {
       std::cout << "Error: wrong --edgeSize" << std::endl;

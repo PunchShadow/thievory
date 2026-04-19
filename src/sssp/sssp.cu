@@ -7,9 +7,11 @@
 
 #include "sssp.cuh"
 #include "sssp_kernels.cuh"
+#include "sssp_verify.cuh"
 
 void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
-            uint32 nNeighborGPUs, std::unordered_map<int, int> affinityMap) {
+            uint32 nNeighborGPUs, std::unordered_map<int, int> affinityMap,
+            bool verify) {
   // numa_run_on_node(0);
   ALGORITHM_TYPE algo = SSSP;
   CSR<uint32> *graph = new CSR<uint32>;
@@ -567,11 +569,25 @@ void SSSP32(std::string filePath, uint32 srcVertex, uint32 nRuns,
   std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
+
+  if (verify) {
+    // h_values was populated by DumpValues() via cudaMemcpy d_values -> h_values
+    cpu_verify_sssp<uint32>(
+        graph->h_offsets,
+        graph->h_edges2[graph->GPUAffinityMap[0]],
+        graph->h_weights2[graph->GPUAffinityMap[0]],
+        static_cast<uint64>(*graph->numVertices),
+        graph->numEdges,
+        static_cast<uint32>(srcVertex),
+        graph->h_values);
+  }
+
   return;
 }
 
 void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
-            uint32 nNeighborGPUs, std::unordered_map<int, int> affinityMap) {
+            uint32 nNeighborGPUs, std::unordered_map<int, int> affinityMap,
+            bool verify) {
   // numa_run_on_node(0);
   ALGORITHM_TYPE algo = SSSP;
   CSR<uint64> *graph = new CSR<uint64>;
@@ -1129,7 +1145,17 @@ void SSSP64(std::string filePath, uint32 srcVertex, uint32 nRuns,
   std::cout << "==========================" << std::endl;
 
   graph->DumpValues();
-  return;
+
+  if (verify) {
+    cpu_verify_sssp<uint64>(
+        graph->h_offsets,
+        graph->h_edges2[graph->GPUAffinityMap[0]],
+        graph->h_weights2[graph->GPUAffinityMap[0]],
+        static_cast<uint64>(*graph->numVertices),
+        graph->numEdges,
+        static_cast<uint64>(srcVertex),
+        graph->h_values);
+  }
 
   return;
 }

@@ -3,8 +3,8 @@ MAKEFLAGS += -j$(nproc)
 NVCC = nvcc
 
 # Compiler flags
-# -Xcompiler -fopenmp for OpenMP apps
-NVCCFLAGS = -O3 -arch=sm_86 -lnuma -I$(HOME)/local/include -L$(HOME)/local/lib
+# -Xcompiler -fopenmp enables OpenMP for the CPU verifier (cpu_verify_sssp)
+NVCCFLAGS = -O3 -lineinfo -arch=sm_86 -lnuma -Xcompiler -fopenmp -lgomp -I$(HOME)/local/include -L$(HOME)/local/lib
 
 # Directories
 SRCDIR = src
