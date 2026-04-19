@@ -1086,6 +1086,7 @@ void PR32_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
     uint32 iterCount = 0;
     while (*(graph->frontierSize)) {
       iterCount++;
+      std::cout << "[PR_PUSH iter " << iterCount << "] active=" << *(graph->frontierSize) << std::endl;
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
           graph->numVertices, graph->d_frontier, graph->d_staticFrontier,
@@ -1200,6 +1201,7 @@ void PR32_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         cudaStreamSynchronize(graph->frontierStream);
 
         totalNumFilterPartitions += partitionList.size();
+        std::cout << "  [iter " << iterCount << "] filter partitionList.size=" << partitionList.size() << " staticSize=" << *(graph->staticSize) << " demandSize=" << *(graph->demandSize) << std::endl;
 
         for (uint32 index = 0; index < partitionList.size(); index++) {
           uint32 partition = partitionList[index];
@@ -1536,6 +1538,7 @@ void PR32_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         //
         // std::cout << "Partitions to be processed in neighbor GPUs: "
         //           << numPartitionsOnNeighbors << std::endl;
+        std::cout << "  [iter " << iterCount << "] numPartitionsOnTarget=" << numPartitionsOnTarget << std::endl;
       }
       cudaDeviceSynchronize();
 
@@ -1616,6 +1619,7 @@ void PR64_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
     uint32 iterCount = 0;
     while (*(graph->frontierSize)) {
       iterCount++;
+      std::cout << "[PR_PUSH iter " << iterCount << "] active=" << *(graph->frontierSize) << std::endl;
       setStaticNDemandFrontiers<<<staticGrid, blockDim, 0,
                                   graph->frontierStream>>>(
           graph->numVertices, graph->d_frontier, graph->d_staticFrontier,
@@ -1730,6 +1734,12 @@ void PR64_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         cudaStreamSynchronize(graph->frontierStream);
 
         totalNumFilterPartitions += partitionList.size();
+        std::cout << "  [iter " << iterCount << "] filter partitionList.size=" << partitionList.size() << " staticSize=" << *(graph->staticSize) << " demandSize=" << *(graph->demandSize) << std::endl;
+        {
+          thrust::device_ptr<bool> ff_ptr(graph->d_filterFrontier);
+          uint64 ff_cnt = thrust::reduce(thrust::device, ff_ptr, ff_ptr + *(graph->numVertices), (uint64)0, thrust::plus<uint64>());
+          std::cout << "  [iter " << iterCount << "] filterFrontier count BEFORE kernels=" << ff_cnt << std::endl;
+        }
 
         for (uint32 index = 0; index < partitionList.size(); index++) {
           uint32 partition = partitionList[index];
@@ -2065,8 +2075,32 @@ void PR64_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
         //
         // std::cout << "Partitions to be processed in neighbor GPUs: "
         //           << numPartitionsOnNeighbors << std::endl;
+        std::cout << "  [iter " << iterCount << "] numPartitionsOnTarget=" << numPartitionsOnTarget << std::endl;
       }
       cudaDeviceSynchronize();
+      {
+        thrust::device_ptr<bool> ff_ptr(graph->d_filterFrontier);
+        uint64 ff_cnt = thrust::reduce(thrust::device, ff_ptr, ff_ptr + *(graph->numVertices), (uint64)0, thrust::plus<uint64>());
+        std::cout << "  [iter " << iterCount << "] filterFrontier count AFTER kernels=" << ff_cnt << std::endl;
+        if (iterCount == 1) {
+          // Per-partition remaining count
+          bool *h_ff = new bool[*(graph->numVertices)];
+          cudaMemcpy(h_ff, graph->d_filterFrontier, *(graph->numVertices) * sizeof(bool), cudaMemcpyDeviceToHost);
+          for (uint32 p = 0; p < *(graph->numPartitions) && p < 12; p++) {
+            uint64 cnt = 0;
+            uint64 vstart = graph->h_partitionsOffsets[p];
+            uint64 vend = graph->h_partitionsOffsets[p+1];
+            for (uint64 v = vstart; v < vend; v++) if (h_ff[v]) cnt++;
+            std::cout << "    partition " << p << " [" << vstart << ".." << vend << "] remaining=" << cnt << "/" << (vend-vstart) << std::endl;
+          }
+          delete[] h_ff;
+        }
+      }
+      {
+        thrust::device_ptr<float> r_ptr(graph->d_residual);
+        float rsum_pre = thrust::reduce(thrust::device, r_ptr, r_ptr + *(graph->numVertices), 0.0f, thrust::plus<float>());
+        std::cout << "  [iter " << iterCount << " pre-update] sum_residual=" << rsum_pre << std::endl;
+      }
 
       // GPUAssert(cudaPeekAtLastError());
 
@@ -2075,6 +2109,13 @@ void PR64_PUSH(std::string filePath, uint32 nRuns, uint32 nNeighborGPUs,
           graph->d_offsets, graph->d_delta, graph->d_residual);
 
       cudaDeviceSynchronize();
+      {
+        thrust::device_ptr<float> r_ptr(graph->d_residual);
+        thrust::device_ptr<float> v_ptr(graph->d_valuesPR);
+        float rsum = thrust::reduce(thrust::device, r_ptr, r_ptr + *(graph->numVertices), 0.0f, thrust::plus<float>());
+        float vsum = thrust::reduce(thrust::device, v_ptr, v_ptr + *(graph->numVertices), 0.0f, thrust::plus<float>());
+        std::cout << "  [iter " << iterCount << " end] sum_residual=" << rsum << " sum_value=" << vsum << std::endl;
+      }
 
       *(graph->frontierSize) = thrust::reduce(
           graph->thrustFrontier, graph->thrustFrontier + *(graph->numVertices),
